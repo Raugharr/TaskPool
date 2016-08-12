@@ -134,10 +134,9 @@ void TaskFinish(struct Task* _Task) {
 	}
 }
 
-int TaskRun(struct Task* _Task) {
-	int _Ret = _Task->Callback(TaskId(_Task), ((void**)_Task->Padding)[0]);
+static inline void TaskRun(struct Task* _Task) {
+	_Task->Callback(TaskId(_Task), ((void**)_Task->Padding)[0]);
 	TaskFinish(_Task);
-	return _Ret;
 }
 
 int TaskPoolThread(struct TaskQueue* _Queue) {
@@ -217,3 +216,9 @@ void RunTasks() {
 		TaskRun(_Task);
 	}
 }
+
+void TaskPoolExecute(int _Id) { 
+    struct TaskQueue* _Queue = SDL_TLSGet(g_ThreadQueue); 
+ 
+    TaskQueuePush(_Queue, (g_TaskAllocator + (_Id * g_TaskPool.TaskSz)));    
+} 

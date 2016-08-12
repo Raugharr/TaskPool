@@ -5,6 +5,8 @@
 
 #include "Sorting.h"
 
+#include "TaskPool.h"
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -103,22 +105,31 @@ void QuickSort_Aux(int* _Table, int _Size, int(*_PivotFunc)(int*, int)) {
 
 struct QuickSortThreadData {
 	int* Table;
-	int _Size;
+	int Size;
 	int(*PivotFunc)(int*, int);
 };
 
-void QuickSortThread(int _Parent, int* _Table, int _Size, int(*_PivotFunc)(int*, int)) {
+void QuickSortThread_Aux(int _TaskId, void* _Data) {
+	struct QuickSortThreadData* _Table = _Data;
+	struct QuickSortThreadData _Left= {0};
+	struct QuickSortThreadData _Right= {0};
 	int _PivotIdx = 0;
 
-	if(_Size <= 1)
+	if(_Table->Size <= 1)
 		return;
-	_PivotIdx = QuickSortPartition(_Table, _Size, _PivotFunc(_Table, _Size_));
-	if(_Size >= 1024) {
-		QuickSortThread(_Table, _Size - (_Size - _PivotIdx), _PivotFunc);
-		QuickSortThread(_Table + _PivotIdx, (_Size - _PivotIdx), _PivotFunc);
+	_PivotIdx = QuickSortPartition(_Table->Table, _Table->Size, _Table->PivotFunc(_Table->Table, _Table->Size));
+	if(_Table->Size >= 1024) {
+		_Left.Table = _Table->Table;
+		_Left.Size = _Table->Size - (_Table->Size - _PivotIdx);
+		_Left.PivotFunc = _Table->PivotFunc;
+		_Right.Table = _Table->Table + _PivotIdx;
+		_Right.Size = _Table->Size - _PivotIdx;
+		_Right.PivotFunc = _Table->PivotFunc;
+		TaskPoolExecute(TaskPoolAdd(_TaskId, QuickSortThread_Aux, &_Left, sizeof(&_Left)));
+		TaskPoolExecute(TaskPoolAdd(_TaskId, QuickSortThread_Aux, &_Right, sizeof(&_Right))); 
 	} else {
-		QuickSort_Aux(_Table, _Size - (_Size - _PivotIdx), _PivotFunc);
-		QuickSort_Aux(_Table + _PivotIdx, (_Size - _PivotIdx), _PivotFunc);
+		QuickSort_Aux(_Table->Table, _Table->Size - (_Table->Size - _PivotIdx), _Table->PivotFunc);
+		QuickSort_Aux(_Table->Table + _PivotIdx, (_Table->Size - _PivotIdx), _Table->PivotFunc);
 	}
 }
 

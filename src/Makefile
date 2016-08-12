@@ -6,8 +6,8 @@ DEBUG_FLAGS=$(FLAGS) -DDEBUG -ggdb
 RELEASE_FLAGS=$(FLAGS) -DNDEBUG -O3
 COMPILE_FLAGS=$(DEBUG_FLAGS)
 MAIN=main.c
-DEPS=TaskPool.h MemoryPool.h
-OBJS=$(OBJFLD)TaskPool.o $(OBJFLD)MemoryPool.o
+DEPS=TaskPool.h MemoryPool.h Sorting.h
+OBJS=$(OBJFLD)TaskPool.o $(OBJFLD)MemoryPool.o $(OBJFLD)Sorting.o
 LIB=-lm -lSDL2main -lSDL2
 
 .PHONY: clean debug release 
