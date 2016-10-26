@@ -37,16 +37,19 @@ struct TaskQueue {
 
 struct TaskPool {
 	struct TaskQueue* Queues;
-	int ThreadCt;
-	int IsAlive;
+	SDL_Thread** Threads;
 	size_t DataSz;
 	size_t TaskSz;
-	SDL_Thread** Threads;
+	uint8_t ThreadCt;
+	uint8_t IsAlive;
 };
 
 void InitTaskPool();
 void QuitTaskPool();
 
+/**
+ * \note If no parent is desired use TASK_NOPARENT.
+ */
 int TaskPoolAdd(int _ParentId, TaskFunc _Callback, void* _Data, size_t _Size);
 void TaskPoolExecute(int _Id);
 void RunTasks();

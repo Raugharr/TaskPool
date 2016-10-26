@@ -17,6 +17,12 @@
 #define TaskId(_Task) ((((void*)(_Task)) - ((void*)g_TaskAllocator)) / g_TaskPool.TaskSz)
 
 static struct TaskPool g_TaskPool;
+/**
+ * Pointer to the array where all Tasks are allocated from.
+ * Each thread is given TASKPOOL_SZ space to allocate which is guranteed to not be touched
+ * by any other thread. This is done to allow generating an id for a task to be trivial where the id
+ * is simply its index in this allocator. 
+ */
 static void* g_TaskAllocator = NULL;
 static SDL_TLSID g_ThreadQueue;
 
@@ -41,11 +47,11 @@ struct Task* TaskQueuePop(struct TaskQueue* _Queue) {
 		return NULL;
 	}
 	if(SDL_AtomicGet(&_Queue->Queue[_Queue->Back - 1]->UnfinishedJobs) > 1) {
-		for(int i = _Queue->Back - 2; i > _Queue->Front + 1; --i) {
+		for(int i = _Queue->Back - 2; i >= _Queue->Front; --i) {
 			if(SDL_AtomicGet(&_Queue->Queue[i]->UnfinishedJobs) == 1) {
 				struct Task* _Temp = _Queue->Queue[_Queue->Back - 1];
 
-				_Queue->Queue[_Queue->Back] = _Queue->Queue[i];
+				_Queue->Queue[_Queue->Back - 1] = _Queue->Queue[i];
 				_Queue->Queue[i] = _Temp;
 				goto task_found;
 			}
@@ -160,7 +166,7 @@ void InitTaskPool() {
 	g_TaskPool.Threads = calloc(g_TaskPool.ThreadCt, sizeof(SDL_Thread*));
 	g_TaskPool.Queues = calloc(g_TaskPool.ThreadCt, sizeof(struct TaskQueue));
 	g_TaskPool.IsAlive = 1;
-	g_TaskAllocator = calloc(TASKPOOL_SZ, sizeof(struct Task) + g_TaskPool.DataSz);
+	g_TaskAllocator = calloc(TASKPOOL_SZ * g_TaskPool.ThreadCt, sizeof(struct Task) + g_TaskPool.DataSz);
 	InitTaskQueue(&g_TaskPool.Queues[0]);
 	g_ThreadQueue = SDL_TLSCreate();
 	SDL_TLSSet(g_ThreadQueue, &g_TaskPool.Queues[0], NULL);
@@ -201,8 +207,14 @@ int TaskPoolAdd(int _ParentId, TaskFunc _Callback, void* _Data, size_t _Size) {
 	SDL_AtomicSet(&_Task->UnfinishedJobs, 1);
 	if(_Parent != NULL)
 		SDL_AtomicIncRef(&_Parent->UnfinishedJobs);
-	TaskQueuePush(_Queue, _Task);	
 	return TaskId(_Task);
+}
+
+void TaskPoolExecute(int _Id) {
+	struct TaskQueue* _Queue = SDL_TLSGet(g_ThreadQueue);
+	//struct Task* _Task = NULL;
+
+	TaskQueuePush(_Queue, (g_TaskAllocator + (_Id * g_TaskPool.TaskSz)));	
 }
 
 void RunTasks() {
@@ -216,9 +228,3 @@ void RunTasks() {
 		TaskRun(_Task);
 	}
 }
-
-void TaskPoolExecute(int _Id) { 
-    struct TaskQueue* _Queue = SDL_TLSGet(g_ThreadQueue); 
- 
-    TaskQueuePush(_Queue, (g_TaskAllocator + (_Id * g_TaskPool.TaskSz)));    
-} 
